@@ -340,6 +340,11 @@ body {
   font-weight: 700;
   color: var(--pink);
 }
+.price-condition-shipping {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
 .price-condition-range {
   font-size: 11px;
   color: var(--muted);

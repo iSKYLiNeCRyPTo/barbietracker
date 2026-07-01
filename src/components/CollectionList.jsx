@@ -1,6 +1,31 @@
 import { useEffect, useState } from "react";
 import { getAllItems, deleteItem } from "../lib/storage";
 
+function exportCsv(items) {
+  const headers = ["Title","UPC","New Avg Price","New Avg Shipping","New Min","New Max","New Sample","Used Avg Price","Used Avg Shipping","Used Min","Used Max","Used Sample","Added"];
+  const rows = items.map((i) => [
+    `"${(i.title ?? "").replace(/"/g, '""')}"`,
+    i.upc ?? "",
+    i.priceNew?.averagePrice ?? "",
+    i.priceNew?.averageShipping ?? "",
+    i.priceNew?.min ?? "",
+    i.priceNew?.max ?? "",
+    i.priceNew?.sampleSize ?? "",
+    i.priceUsed?.averagePrice ?? "",
+    i.priceUsed?.averageShipping ?? "",
+    i.priceUsed?.min ?? "",
+    i.priceUsed?.max ?? "",
+    i.priceUsed?.sampleSize ?? "",
+    i.addedAt ? new Date(i.addedAt).toLocaleDateString() : "",
+  ]);
+  const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "barbie-collection.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function CollectionList({ refreshKey }) {
   const [items,  setItems]  = useState([]);
   const [filter, setFilter] = useState("");
@@ -26,7 +51,15 @@ export default function CollectionList({ refreshKey }) {
     <div>
       <div className="collection-header">
         <h2>{items.length} Barbies</h2>
-        {total > 0 && <div className="total-badge">${total.toFixed(2)}</div>}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {total > 0 && <div className="total-badge">${total.toFixed(2)}</div>}
+          {items.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={() => exportCsv(items)} title="Export to CSV">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              {" "}CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {items.length > 0 && (

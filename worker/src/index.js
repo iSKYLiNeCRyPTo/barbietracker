@@ -96,41 +96,36 @@ async function handleSearch(q, env) {
 
 // ── eBay sold listings via Finding API ───────────────────────────────────────
 
-async function handlePrice(q, env) {
-  const [newItems, usedItems] = await Promise.all([
-    fetchSoldItems(q, "1000", env),
-    fetchSoldItems(q, "3000", env),
-  ]);
-  return json({
-    query: q,
-    new:  calcStats(newItems),
-    used: calcStats(usedItems),
-  });
-}
+// NEW_CONDITION_IDS: 1000=New, 1500=New other, 1750=New with defects
+const NEW_CONDITIONS = new Set(["1000", "1500", "1750"]);
 
-async function fetchSoldItems(q, conditionId, env) {
-  const params = new URLSearchParams({
-    "OPERATION-NAME":       "findCompletedItems",
-    "SERVICE-VERSION":      "1.0.0",
-    "SECURITY-APPNAME":     env.EBAY_CLIENT_ID,
-    "RESPONSE-DATA-FORMAT": "JSON",
-    "keywords":             q,
-    "itemFilter(0).name":   "SoldItemsOnly",
-    "itemFilter(0).value":  "true",
-    "itemFilter(1).name":   "Condition",
-    "itemFilter(1).value":  conditionId,
-    "paginationInput.entriesPerPage": "100",
-    "sortOrder":            "EndTimeSoonest",
-  });
-  const res = await fetch(`https://svcs.ebay.com/services/search/FindingService/v1?${params}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  const listings = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
-  return listings.map((i) => {
-    const price = parseFloat(i.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ ?? 0);
-    const endTime = i.listingInfo?.[0]?.endTime?.[0];
-    return { price: price || null, soldAt: endTime ? Date.parse(endTime) : null };
-  }).filter((i) => i.price);
+async function handlePrice(q, env) {
+  const token = await getEbayToken(env);
+
+  // Fetch new and used active BIN listings in parallel via Browse API (which works from Cloudflare)
+  const [newRes, usedRes] = await Promise.all([
+    fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?` + new URLSearchParams({
+      q, limit: "100", filter: "conditionIds:{1000|1500|1750},buyingOptions:{FIXED_PRICE}"
+    }), { headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }),
+    fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?` + new URLSearchParams({
+      q, limit: "100", filter: "conditionIds:{3000|4000|5000|6000},buyingOptions:{FIXED_PRICE}"
+    }), { headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }),
+  ]);
+
+  const toItems = async (res) => {
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.itemSummaries ?? []).map((i) => {
+      const itemPrice = parseFloat(i.price?.value ?? 0);
+      const shipping  = parseFloat(i.shippingOptions?.[0]?.shippingCost?.value ?? 0);
+      const total     = itemPrice + shipping;
+      return { price: total > 0 ? total : itemPrice, itemPrice, shipping, soldAt: null };
+    }).filter((i) => i.price > 0);
+  };
+
+  const [newItems, usedItems] = await Promise.all([toItems(newRes), toItems(usedRes)]);
+
+  return json({ query: q, new: calcStats(newItems), used: calcStats(usedItems) });
 }
 
 // ── IQR outlier removal ───────────────────────────────────────────────────────
@@ -161,10 +156,13 @@ function calcStats(items) {
   }
 
   const { clean, removed } = removeOutliers(raw);
-  const avg = clean.reduce((a, b) => a + b, 0) / clean.length;
+  const avg     = clean.reduce((a, b) => a + b, 0) / clean.length;
+  const shipRaw = pool.map((i) => i.shipping).filter((s) => s != null);
+  const avgShip = shipRaw.length ? Math.round((shipRaw.reduce((a, b) => a + b, 0) / shipRaw.length) * 100) / 100 : null;
 
   return {
     averagePrice:    Math.round(avg * 100) / 100,
+    averageShipping: avgShip,
     min:             Math.min(...clean),
     max:             Math.max(...clean),
     sampleSize:      clean.length,

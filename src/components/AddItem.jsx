@@ -10,15 +10,20 @@ function PriceBox({ label, stats }) {
   if (!stats?.averagePrice) return (
     <div className="price-condition-block">
       <div className="price-condition-label">{label}</div>
-      <div className="price-condition-none">No sales found</div>
+      <div className="price-condition-none">No listings found</div>
     </div>
   );
   return (
     <div className="price-condition-block">
       <div className="price-condition-label">{label}</div>
       <div className="price-condition-avg">${stats.averagePrice.toFixed(2)}</div>
+      {stats.averageShipping != null && (
+        <div className="price-condition-shipping">
+          +${stats.averageShipping.toFixed(2)} avg shipping
+        </div>
+      )}
       <div className="price-condition-range">
-        ${stats.min} – ${stats.max} · {stats.sampleSize} sales{stats.outliersRemoved > 0 && ` · ${stats.outliersRemoved} outlier${stats.outliersRemoved > 1 ? "s" : ""} removed`}
+        ${stats.min} – ${stats.max} · {stats.sampleSize} listings{stats.outliersRemoved > 0 && ` · ${stats.outliersRemoved} outlier${stats.outliersRemoved > 1 ? "s" : ""} removed`}
       </div>
     </div>
   );
