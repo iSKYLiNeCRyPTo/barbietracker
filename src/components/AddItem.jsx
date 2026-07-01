@@ -186,7 +186,7 @@ export default function AddItem({ onSaved }) {
                 </button>
               ) : (
                 <div className="price-split">
-                  <PriceBox label="New / NRFB" stats={price.new}  />
+                  <PriceBox label="New / NRFB (asking)" stats={price.new}  />
                   <PriceBox label="Used"        stats={price.used} />
                 </div>
               )}
