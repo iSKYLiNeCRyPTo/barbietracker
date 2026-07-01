@@ -25,7 +25,7 @@ export default {
         return await handleUpc(url.pathname.split("/upc/")[1]);
       if (url.pathname === "/search") {
         const q = url.searchParams.get("q");
-        return q ? await handleSearch(q) : err("missing q");
+        return q ? await handleSearch(q, env) : err("missing q");
       }
       if (url.pathname === "/price") {
         const q = url.searchParams.get("q");
@@ -59,25 +59,23 @@ async function handleUpc(code) {
   return json({ found: true, upc: code, title: item.title, brand: item.brand, images: item.images ?? [] });
 }
 
-// ── eBay search page scrape (temporary, no API key needed) ───────────────────
-// TODO: swap back to handleSearchApi() once eBay developer account is approved.
+// ── eBay OAuth token (Client Credentials) ────────────────────────────────────
 
-async function handleSearch(q) {
-  const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(`Barbie ${q}`)}&_sop=12&LH_BIN=1`;
-  const UA  = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) return err(`eBay search failed: ${res.status}`, 502);
-
-  const html  = await res.text();
-  const items = parseSearchListings(html);
-  return json({ query: q, total: items.length, items });
+async function getEbayToken(env) {
+  const creds = btoa(`${env.EBAY_CLIENT_ID}:${env.EBAY_CLIENT_SECRET}`);
+  const res   = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    method:  "POST",
+    headers: { Authorization: `Basic ${creds}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body:    "grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope",
+  });
+  if (!res.ok) throw new Error(`eBay auth failed: ${res.status}`);
+  const data = await res.json();
+  return data.access_token;
 }
 
-/* When the Browse API is approved, rename the above to handleSearch and
-   uncomment + rename this to handleSearch instead:
+// ── eBay Browse API search ────────────────────────────────────────────────────
 
-async function handleSearchApi(q, env) {
+async function handleSearch(q, env) {
   const token  = await getEbayToken(env);
   const params = new URLSearchParams({ q: `Barbie ${q}`, limit: "20", fieldgroups: "MATCHING_ITEMS" });
   const res    = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
@@ -94,7 +92,6 @@ async function handleSearchApi(q, env) {
   }));
   return json({ query: q, total: data.total ?? 0, items });
 }
-*/
 
 function parseSearchListings(html) {
   const items  = [];
