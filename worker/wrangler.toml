@@ -1,0 +1,5 @@
+name = "barbietracker-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# wrangler deploy

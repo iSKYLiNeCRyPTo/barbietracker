@@ -1,0 +1,483 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0D0D1A;
+  --surface:   #16162A;
+  --surface2:  #1E1E35;
+  --pink:      #FF2D78;
+  --pink-dim:  #CC1F5E;
+  --white:     #FFFFFF;
+  --muted:     #8888AA;
+  --text:      #E8E8F0;
+  --radius:    12px;
+  --font:      -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Safe area insets for notch / home bar */
+  --sat: env(safe-area-inset-top,    0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left,   0px);
+  --sar: env(safe-area-inset-right,  0px);
+}
+
+html {
+  /* Prevent font size inflation on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport height — correct on iOS */
+  -webkit-font-smoothing: antialiased;
+  /* Prevent rubber-band overscroll showing white background */
+  overscroll-behavior: none;
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-header {
+  padding: 12px 20px 10px;
+  padding-top: calc(12px + var(--sat));
+  padding-left:  calc(20px + var(--sal));
+  padding-right: calc(20px + var(--sar));
+  border-bottom: 1px solid #ffffff12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Stick to top so it doesn't scroll away */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+}
+.app-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--white);
+}
+.app-header h1 span { color: var(--pink); }
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid #ffffff12;
+  position: sticky;
+  top: calc(44px + var(--sat)); /* height of header */
+  z-index: 9;
+  background: var(--bg);
+}
+.tab-bar button {
+  flex: 1;
+  background: none;
+  border: none;
+  /* 44px minimum tap target height */
+  padding: 0;
+  height: 44px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  /* Prevent text from being cut off */
+  white-space: nowrap;
+  /* Remove tap highlight on iOS */
+  -webkit-tap-highlight-color: transparent;
+}
+.tab-bar button.active {
+  color: var(--pink);
+  border-bottom-color: var(--pink);
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+  padding-left:  calc(20px + var(--sal));
+  padding-right: calc(20px + var(--sar));
+  /* Leave room for home bar at bottom */
+  padding-bottom: calc(24px + var(--sab));
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* 48px height = comfortable tap target */
+  min-height: 48px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 16px; /* 16px prevents iOS zoom */
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* removes 300ms tap delay */
+  user-select: none;
+}
+.btn:active { transform: scale(0.97); opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--pink); color: var(--white); }
+.btn-primary:hover:not(:disabled) { background: var(--pink-dim); }
+.btn-ghost {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid #ffffff18;
+}
+.btn-sm {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 15px;
+  width: auto;
+}
+.btn-danger { background: #3A1020; color: #FF6B9D; border: 1px solid #FF2D7840; }
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+
+.input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid #ffffff18;
+  border-radius: var(--radius);
+  padding: 14px;
+  /* MUST be 16px — anything smaller triggers iOS auto-zoom on focus */
+  font-size: 16px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  /* Prevent iOS from rounding input corners */
+  -webkit-appearance: none;
+  appearance: none;
+  /* Comfortable tap target */
+  min-height: 48px;
+}
+.input:focus { border-color: var(--pink); }
+.input::placeholder { color: var(--muted); }
+
+/* ── Mode switcher ───────────────────────────────────────────────────────── */
+
+.mode-switcher {
+  display: flex;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.mode-switcher button {
+  flex: 1;
+  background: none;
+  border: none;
+  min-height: 40px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  white-space: nowrap;
+}
+.mode-switcher button.active {
+  background: var(--pink);
+  color: var(--white);
+}
+
+/* ── Camera / scan area ──────────────────────────────────────────────────── */
+
+.scanner-wrap {
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+  margin-bottom: 16px;
+  /* Aspect ratio so layout doesn't jump when camera loads */
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scanner-wrap video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Search bar ──────────────────────────────────────────────────────────── */
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: stretch;
+}
+.search-bar .input { flex: 1; }
+
+/* ── Results grid ────────────────────────────────────────────────────────── */
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.result-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.result-card:active { transform: scale(0.97); }
+.result-card.selected { border-color: var(--pink); }
+
+.result-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #ffffff08;
+  padding: 8px;
+  display: block;
+}
+.result-card .card-img-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  font-size: 32px;
+}
+.result-card .card-body { padding: 8px 10px 10px; }
+.result-card .card-title {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.result-card .card-price {
+  font-size: 12px;
+  color: var(--pink);
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+/* ── Confirm panel ───────────────────────────────────────────────────────── */
+
+.confirm-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.confirm-panel .confirm-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: #ffffff08;
+  display: block;
+}
+.confirm-panel label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+
+/* ── New / Used price split ──────────────────────────────────────────────── */
+
+.price-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+.price-condition-block {
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.price-condition-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.price-condition-avg {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pink);
+}
+.price-condition-range {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.price-condition-none {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Collection ──────────────────────────────────────────────────────────── */
+
+.collection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.collection-header h2 { font-size: 18px; font-weight: 700; }
+.total-badge {
+  background: var(--surface2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--pink);
+  font-weight: 700;
+}
+
+.collection-search { margin-bottom: 16px; }
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.coll-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+.coll-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #ffffff08;
+  padding: 8px;
+  display: block;
+}
+.coll-card .coll-img-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff08;
+  font-size: 40px;
+}
+.coll-card .coll-body { padding: 8px 10px 10px; }
+.coll-card .coll-title {
+  font-size: 12px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Delete button — 44×44 tap target */
+.coll-card .coll-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* 44px tap target, visually smaller */
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.coll-card .coll-delete::after {
+  content: "✕";
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #00000080;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  line-height: 26px;
+  text-align: center;
+}
+
+/* Price tags */
+.coll-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.coll-price-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.coll-price-tag.new  { background: #1A2E1A; color: #5EE85E; }
+.coll-price-tag.used { background: #1A1A2E; color: #7878FF; }
+
+/* ── Empty / loading states ──────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+}
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 15px; }
+
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.error { color: #FF6B9D; font-size: 14px; padding: 8px 0; }
+.loading { color: var(--muted); font-size: 14px; padding: 12px 0; text-align: center; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
