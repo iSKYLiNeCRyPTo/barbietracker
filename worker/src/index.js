@@ -29,7 +29,7 @@ export default {
       }
       if (url.pathname === "/price") {
         const q = url.searchParams.get("q");
-        return q ? await handlePrice(q) : err("missing q");
+        return q ? await handlePrice(q, env) : err("missing q");
       }
       return err("not found", 404);
     } catch (e) {
@@ -93,55 +93,44 @@ async function handleSearch(q, env) {
   return json({ query: q, total: data.total ?? 0, items });
 }
 
-function parseSearchListings(html) {
-  const items  = [];
-  const blocks = html.split('<div class="s-item__info clearfix">').slice(1);
 
-  for (const block of blocks) {
-    const titleMatch = block.match(/<span[^>]*role="heading"[^>]*>([^<]+)<\/span>/);
-    const priceMatch = block.match(/<span class="s-item__price">[^$]*\$([\d,]+\.?\d*)/);
-    const imgMatch   = block.match(/<img[^>]+src="(https:\/\/i\.ebayimg\.com[^"]+)"[^>]*>/);
-    const urlMatch   = block.match(/href="(https:\/\/www\.ebay\.com\/itm\/[^"?]+)/);
-    const idMatch    = urlMatch?.[1]?.match(/\/itm\/(\d+)/);
+// ── eBay sold listings via Finding API ───────────────────────────────────────
 
-    const title = titleMatch?.[1]?.trim();
-    if (!title || title === "Shop on eBay") continue;
-
-    items.push({
-      id:    idMatch?.[1] ?? Math.random().toString(36).slice(2),
-      title,
-      image: imgMatch?.[1]?.replace(/s-l\d+/, "s-l500") ?? null, // upscale thumb
-      price: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, "")) : null,
-      url:   urlMatch?.[1] ?? null,
-    });
-
-    if (items.length >= 20) break;
-  }
-
-  return items;
-}
-
-// ── eBay sold listings — new + used in parallel ───────────────────────────────
-
-async function handlePrice(q) {
-  const base = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
-  const UA   = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-
-  const [newRes, usedRes] = await Promise.all([
-    fetch(`${base}&LH_ItemCondition=1000`, { headers: { "User-Agent": UA } }),
-    fetch(`${base}&LH_ItemCondition=3000`, { headers: { "User-Agent": UA } }),
+async function handlePrice(q, env) {
+  const [newItems, usedItems] = await Promise.all([
+    fetchSoldItems(q, "1000", env),
+    fetchSoldItems(q, "3000", env),
   ]);
-
-  const [newHtml, usedHtml] = await Promise.all([
-    newRes.ok  ? newRes.text()  : Promise.resolve(""),
-    usedRes.ok ? usedRes.text() : Promise.resolve(""),
-  ]);
-
   return json({
     query: q,
-    new:   calcStats(parseSoldListings(newHtml)),
-    used:  calcStats(parseSoldListings(usedHtml)),
+    new:  calcStats(newItems),
+    used: calcStats(usedItems),
   });
+}
+
+async function fetchSoldItems(q, conditionId, env) {
+  const params = new URLSearchParams({
+    "OPERATION-NAME":       "findCompletedItems",
+    "SERVICE-VERSION":      "1.0.0",
+    "SECURITY-APPNAME":     env.EBAY_CLIENT_ID,
+    "RESPONSE-DATA-FORMAT": "JSON",
+    "keywords":             q,
+    "itemFilter(0).name":   "SoldItemsOnly",
+    "itemFilter(0).value":  "true",
+    "itemFilter(1).name":   "Condition",
+    "itemFilter(1).value":  conditionId,
+    "paginationInput.entriesPerPage": "100",
+    "sortOrder":            "EndTimeSoonest",
+  });
+  const res = await fetch(`https://svcs.ebay.com/services/search/FindingService/v1?${params}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const listings = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+  return listings.map((i) => {
+    const price = parseFloat(i.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ ?? 0);
+    const endTime = i.listingInfo?.[0]?.endTime?.[0];
+    return { price: price || null, soldAt: endTime ? Date.parse(endTime) : null };
+  }).filter((i) => i.price);
 }
 
 // ── IQR outlier removal ───────────────────────────────────────────────────────
@@ -184,17 +173,3 @@ function calcStats(items) {
   };
 }
 
-// ── HTML parser ───────────────────────────────────────────────────────────────
-
-function parseSoldListings(html) {
-  const items  = [];
-  const blocks = html.split('<div class="s-item__info clearfix">').slice(1);
-  for (const block of blocks) {
-    const priceMatch = block.match(/<span class="s-item__price">[^$]*\$([\d,]+\.\d{2})/);
-    const dateMatch  = block.match(/Sold\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/);
-    if (!priceMatch) continue;
-    const price = parseFloat(priceMatch[1].replace(/,/g, ""));
-    if (!isNaN(price)) items.push({ price, soldAt: dateMatch ? Date.parse(dateMatch[1]) : null });
-  }
-  return items;
-}
